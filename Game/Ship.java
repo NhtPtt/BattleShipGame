@@ -29,7 +29,9 @@ public class Ship {
         return this.hits >= this.size;
     }
 
+    // Check if the ship occupies a specific coordinate
     public boolean occupies(int targetX, int targetY) {
+        // Check if the target coordinates are within the bounds of the ship
         if (this.direction == Direction.HORIZONTAL) {
             return targetY == this.y && targetX >= this.x && targetX < this.x + this.size;
         } else {
@@ -37,7 +39,7 @@ public class Ship {
         }
     }
 
-    // Getters & Setters cần thiết (bỏ bớt các setter không hợp lý như setShipSize hay setShipHealth)
+    // Getters and setters
     public char getType() { return type; }
     public int getSize() { return size; }
     public int getX() { return x; }
