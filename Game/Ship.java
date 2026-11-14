@@ -1,4 +1,5 @@
 public class Ship {
+    // Define the possible directions for the ship
     public enum Direction {
         HORIZONTAL, VERTICAL
     }
