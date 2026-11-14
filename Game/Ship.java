@@ -1,89 +1,57 @@
 public class Ship {
-    char shipType;
-    int shipSize;
-    int shipHealth;
-    int shipX;
-    int shipY;
-    int shipDirection; // 0 for horizontal, 1 for vertical
-    int shipHits;
-    int shipSunk;
-    
-    public Ship(char type, int size, int x, int y, int direction) {
-            this.shipType = type;
-            this.shipSize = size;
-            this.shipHealth = size;
-            this.shipX = x;
-            this.shipY = y;
-            this.shipDirection = direction;
-            this.shipHits = 0;
-            this.shipSunk = 0;
+    public enum Direction {
+        HORIZONTAL, VERTICAL
+    }
+
+    private char type;
+    private int size;
+    private int x; // col
+    private int y; // row
+    private Direction direction;
+    private int hits;
+
+    public Ship(char type, int size, int x, int y, Direction direction) {
+        this.type = type;
+        this.size = size;
+        this.x = x;
+        this.y = y;
+        this.direction = direction;
+        this.hits = 0;
     }
 
     public void hit() {
-        this.shipHits++;
-        this.shipHealth--;
-        if (this.shipHealth <= 0) {
-            this.shipSunk = 1;
+        if (!isSunk()) {
+            this.hits++;
         }
     }
 
     public boolean isSunk() {
-        return this.shipSunk == 1;
+        return this.hits >= this.size;
     }
 
-    public char getShipType() {
-        return this.shipType;
+    public boolean occupies(int targetX, int targetY) {
+        if (this.direction == Direction.HORIZONTAL) {
+            return targetY == this.y && targetX >= this.x && targetX < this.x + this.size;
+        } else {
+            return targetX == this.x && targetY >= this.y && targetY < this.y + this.size;
+        }
     }
 
-    public int getShipSize() {
-        return this.shipSize;
+    // Getters & Setters cần thiết (bỏ bớt các setter không hợp lý như setShipSize hay setShipHealth)
+    public char getType() { return type; }
+    public int getSize() { return size; }
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public Direction getDirection() { return direction; }
+    public int getHits() { return hits; }
+    public int getHealth() { return size - hits; }
+
+    public void setPosition(int x, int y) {
+        this.x = x;
+        this.y = y;
     }
 
-    public int getShipHealth() {
-        return this.shipHealth;
-    }
-
-    public int getShipX() {
-        return this.shipX;
-    }
-
-    public int getShipY() {
-        return this.shipY;
-    }
-
-    public int getShipDirection() {
-        return this.shipDirection;
-    }
-
-    public int getShipHits() {
-        return this.shipHits;
-    }
-
-    public int getShipSunk() {
-        return this.shipSunk;
-    }
-
-    public void setShipType(char type) {
-        this.shipType = type;
-    }
-
-    public void setShipSize(int size) {
-        this.shipSize = size;
-    }
-
-    public void setShipHealth(int health) {
-        this.shipHealth = health;
-    }
-
-    public void setShipX(int x) {
-        this.shipX = x;
-    }
-
-    public void setShipY(int y) {
-        this.shipY = y;
-    }
-
-    public void setShipDirection(int direction) {
-        this.shipDirection = direction;
+    public void setDirection(Direction direction) {
+        this.direction = direction;
     }
 }
