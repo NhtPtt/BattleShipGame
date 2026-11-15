@@ -24,7 +24,7 @@ public class Main {
         }
     }
 
-    private static void launchSwingMode() {
+    public static void launchSwingMode() {
         String[] modeOptions = {"Player vs AI (Easy)", "Player vs AI (Hard)", "Player vs Player"};
         int modeChoice = JOptionPane.showOptionDialog(
                 null,

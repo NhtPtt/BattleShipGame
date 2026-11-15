@@ -20,6 +20,7 @@ public class BattleshipGUI extends JFrame {
     private final JButton randomizeButton;
     private final JButton clearButton;
     private final JButton confirmButton;
+    private final KeyEventDispatcher keyDispatcher;
     private final Random random;
 
     private boolean isPlacementPhase;
@@ -70,19 +71,22 @@ public class BattleshipGUI extends JFrame {
         clearButton = new JButton("Clear Board");
         confirmButton = new JButton("Start Battle");
         JButton resetButton = new JButton("New Game");
+        JButton menuButton = new JButton("Back to Menu");
 
         randomizeButton.addActionListener(e -> randomizeActiveFleet());
         clearButton.addActionListener(e -> clearActiveFleet());
         confirmButton.addActionListener(e -> handleConfirmPlacement());
         resetButton.addActionListener(e -> initGame());
+        menuButton.addActionListener(e -> returnToMenu());
 
         bottomPanel.add(randomizeButton);
         bottomPanel.add(clearButton);
         bottomPanel.add(confirmButton);
         bottomPanel.add(resetButton);
+        bottomPanel.add(menuButton);
         add(bottomPanel, BorderLayout.SOUTH);
 
-        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
             if (e.getID() == KeyEvent.KEY_PRESSED && e.getKeyCode() == KeyEvent.VK_R) {
                 if (isPlacementPhase && !gameOver) {
                     toggleDirection();
@@ -92,13 +96,20 @@ public class BattleshipGUI extends JFrame {
                 }
             }
             return false;
-        });
+        };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(keyDispatcher);
 
         initGame();
 
         pack();
         setLocationRelativeTo(null);
         setVisible(true);
+    }
+
+    private void returnToMenu() {
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(keyDispatcher);
+        dispose();
+        SwingUtilities.invokeLater(Main::launchSwingMode);
     }
 
     private JPanel createBoardPanel(String title, JButton[][] buttons, JLabel[] shipLabels, int boardOwner) {
