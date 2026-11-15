@@ -9,7 +9,9 @@ A Java-based implementation of the classic **Battleship** board game.
 > **Note:** This project is currently unfinished and under active development.
 
 ## How to play
-- Take turn attacking the enemy ships allocated on the sea map until all the ships have sunk
+- Compete against friends or challenge artificial intelligence.
+- Place the ships in strategic positions.
+- Take turn attacking the enemy ships allocated on the sea map until all the ships have sunk.
 
 ## How to run
 - Make sure Java JDK is installed on your computer.
