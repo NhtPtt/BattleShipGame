@@ -1,5 +1,3 @@
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -8,28 +6,25 @@ public class GameManager {
     private final Scanner scanner;
     private final Board board1;
     private final Board board2;
+    private final AIPlayer aiPlayer;
     private final Random random;
-    private final Queue<int[]> aiTargetQueue;
 
     public GameManager(GameSettings settings, Scanner scanner) {
         this.settings = settings;
         this.scanner = scanner;
         this.board1 = new Board();
         this.board2 = new Board();
+        this.aiPlayer = new AIPlayer(settings.getAiDifficulty());
         this.random = new Random();
-        this.aiTargetQueue = new LinkedList<>();
     }
 
     public void start() {
         setupPhase();
         battlePhase();
     }
-    
-    // Setup phase where players place their ships on the board
+
     private void setupPhase() {
-        // Player 1 ship placement
         System.out.println("\n=== PLAYER 1 SHIP PLACEMENT ===");
-        // Depending on the placement mode, either manually place ships or automatically place them
         if (settings.getPlacementMode() == GameSettings.PlacementMode.MANUAL) {
             manualPlaceShips(board1);
         } else {
@@ -37,7 +32,6 @@ public class GameManager {
             board1.printBoard(true);
         }
 
-        // Player 2 ship placement
         if (settings.getGameMode() == GameSettings.GameMode.PLAYER_VS_PLAYER) {
             System.out.println("\n=== PLAYER 2 SHIP PLACEMENT ===");
             if (settings.getPlacementMode() == GameSettings.PlacementMode.MANUAL) {
@@ -66,7 +60,8 @@ public class GameManager {
                     handleHumanTurn(board1, "Player 2");
                 } else {
                     System.out.println("\n=== AI TURN ===");
-                    handleAiTurn();
+                    Board.AttackResult aiResult = aiPlayer.takeTurn(board1);
+                    System.out.println("AI attack result: " + aiResult);
                 }
             }
             isPlayer1Turn = !isPlayer1Turn;
@@ -82,7 +77,6 @@ public class GameManager {
         opponentBoard.printBoard(false);
     }
 
-    // Handle a human player's turn by prompting for attack coordinates and processing the attack
     private void handleHumanTurn(Board targetBoard, String playerName) {
         while (true) {
             System.out.print(playerName + ", enter attack coordinates (x y): ");
@@ -103,66 +97,6 @@ public class GameManager {
         }
     }
 
-    // Handle the AI's turn by selecting attack coordinates based on difficulty and processing the attack
-    private void handleAiTurn() {
-        while (true) {
-            int[] coords = getAiNextShot();
-            int x = coords[0];
-            int y = coords[1];
-
-            Board.AttackResult result = board1.attack(x, y);
-            if (result != Board.AttackResult.ALREADY_ATTACKED) {
-                System.out.println("AI shot at (" + x + ", " + y + "): " + result);
-                if (settings.getAiDifficulty() == GameSettings.AIDifficulty.HARD) {
-                    if (result == Board.AttackResult.HIT) {
-                        enqueueAdjacentCells(x, y);
-                    } else if (result == Board.AttackResult.SUNK) {
-                        aiTargetQueue.clear();
-                    }
-                }
-                break;
-            }
-        }
-    }
-
-    // Get the next shot coordinates for the AI based on its difficulty level
-    private int[] getAiNextShot() {
-        if (settings.getAiDifficulty() == GameSettings.AIDifficulty.HARD) {
-
-            // If there are queued target cells from previous hits, use them first
-            while (!aiTargetQueue.isEmpty()) {
-
-                // Get the next target from the queue and check if it's valid
-                int[] next = aiTargetQueue.poll();
-                Board.CellState state = board1.getCellState(next[0], next[1]);
-
-                // Only return the next target if it hasn't been attacked yet
-                if (state != Board.CellState.HIT && state != Board.CellState.MISS) {
-                    return next;
-                }
-            }
-        }
-        return new int[]{random.nextInt(Board.SIZE), random.nextInt(Board.SIZE)};
-    }
-
-    // Enqueue adjacent cells of a hit ship to the AI's target queue for future attacks
-    private void enqueueAdjacentCells(int x, int y) {
-        int[][] directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
-
-        // Check each adjacent cell and add it to the queue if it's within bounds and hasn't been attacked yet
-        for (int[] dir : directions) {
-            int nx = x + dir[0];
-            int ny = y + dir[1];
-            if (nx >= 0 && nx < Board.SIZE && ny >= 0 && ny < Board.SIZE) {
-                Board.CellState state = board1.getCellState(nx, ny);
-                if (state != Board.CellState.HIT && state != Board.CellState.MISS) {
-                    aiTargetQueue.offer(new int[]{nx, ny});
-                }
-            }
-        }
-    }
-
-    // Manual ship placement for a player, prompting for coordinates and direction for each ship
     private void manualPlaceShips(Board board) {
         char[] types = GameSettings.DEFAULT_SHIP_TYPES;
         int[] sizes = GameSettings.DEFAULT_SHIP_SIZES;
@@ -187,15 +121,12 @@ public class GameManager {
         }
     }
 
-    // Automatic ship placement for a player, randomly placing ships on the board without overlaps
     private void autoPlaceShips(Board board) {
         char[] types = GameSettings.DEFAULT_SHIP_TYPES;
         int[] sizes = GameSettings.DEFAULT_SHIP_SIZES;
 
-        // Randomly place each ship on the board until a valid position is found
         for (int i = 0; i < types.length; i++) {
             boolean placed = false;
-            // Keep trying random positions until the ship is successfully placed
             while (!placed) {
                 int x = random.nextInt(Board.SIZE);
                 int y = random.nextInt(Board.SIZE);
@@ -206,7 +137,6 @@ public class GameManager {
         }
     }
 
-    // Read an integer from the scanner, prompting the user until a valid integer is entered
     private int readInt() {
         while (!scanner.hasNextInt()) {
             scanner.next();
@@ -215,7 +145,6 @@ public class GameManager {
         return scanner.nextInt();
     }
 
-    // Announce the winner of the game based on which player's ships have all been sunk
     private void announceWinner() {
         System.out.println("\n=== GAME OVER ===");
         if (board2.allShipsSunk()) {
