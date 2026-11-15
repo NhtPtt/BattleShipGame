@@ -2,9 +2,9 @@
 
 # 🚢 BattleShipGame
 
-![Java](https://shields.io)
-![Visitors](https://laobi.icu)
-![Status](https://shields.io)
+<img src="https://shields.io" alt="Java" />
+<img src="https://laobi.icu" alt="Visitors" />
+<img src="https://shields.io" alt="Status" />
 
 </div>
 
