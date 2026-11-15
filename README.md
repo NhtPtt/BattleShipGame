@@ -1,4 +1,5 @@
 # BattleShipGame
+- Unfinished
 # Description
 - This is a Java-based implementation of the game BattleShip.
 # Disclaimer
