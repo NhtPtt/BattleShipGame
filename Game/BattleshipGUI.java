@@ -8,33 +8,38 @@ import javax.swing.*;
 
 public class BattleshipGUI extends JFrame {
     private final GameSettings settings;
-    private final Board playerBoard;
-    private final Board aiBoard;
+    private final Board board1;
+    private final Board board2;
     private final AIPlayer aiPlayer;
-    private final JButton[][] playerButtons;
-    private final JButton[][] aiButtons;
-    private final JLabel[] playerShipLabels;
-    private final JLabel[] aiShipLabels;
+    private final JButton[][] buttons1;
+    private final JButton[][] buttons2;
+    private final JLabel[] shipLabels1;
+    private final JLabel[] shipLabels2;
     private final JLabel statusLabel;
     private final JButton rotateButton;
+    private final JButton randomizeButton;
+    private final JButton clearButton;
+    private final JButton confirmButton;
     private final Random random;
 
     private boolean isPlacementPhase;
+    private int activePlayer;
     private int currentShipIndex;
     private Ship.Direction currentDirection;
     private boolean gameOver;
+    private boolean hideAllShipsDuringHandoff;
     private int hoverX = -1;
     private int hoverY = -1;
 
     public BattleshipGUI(GameSettings settings) {
         this.settings = settings;
-        this.playerBoard = new Board();
-        this.aiBoard = new Board();
+        this.board1 = new Board();
+        this.board2 = new Board();
         this.aiPlayer = new AIPlayer(settings.getAiDifficulty());
-        this.playerButtons = new JButton[Board.SIZE][Board.SIZE];
-        this.aiButtons = new JButton[Board.SIZE][Board.SIZE];
-        this.playerShipLabels = new JLabel[GameSettings.DEFAULT_SHIP_TYPES.length];
-        this.aiShipLabels = new JLabel[GameSettings.DEFAULT_SHIP_TYPES.length];
+        this.buttons1 = new JButton[Board.SIZE][Board.SIZE];
+        this.buttons2 = new JButton[Board.SIZE][Board.SIZE];
+        this.shipLabels1 = new JLabel[GameSettings.DEFAULT_SHIP_TYPES.length];
+        this.shipLabels2 = new JLabel[GameSettings.DEFAULT_SHIP_TYPES.length];
         this.random = new Random();
 
         setTitle("Battleship - Java Swing");
@@ -50,15 +55,30 @@ public class BattleshipGUI extends JFrame {
         topPanel.add(rotateButton);
         add(topPanel, BorderLayout.NORTH);
 
+        boolean isPvP = settings.getGameMode() == GameSettings.GameMode.PLAYER_VS_PLAYER;
+        String title1 = isPvP ? "PLAYER 1 FLEET" : "YOUR FLEET";
+        String title2 = isPvP ? "PLAYER 2 FLEET" : "ENEMY WATERS";
+
         JPanel boardsContainer = new JPanel(new GridLayout(1, 2, 25, 0));
         boardsContainer.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-        boardsContainer.add(createBoardPanel("YOUR FLEET", playerButtons, playerShipLabels, true));
-        boardsContainer.add(createBoardPanel("ENEMY WATERS", aiButtons, aiShipLabels, false));
+        boardsContainer.add(createBoardPanel(title1, buttons1, shipLabels1, 1));
+        boardsContainer.add(createBoardPanel(title2, buttons2, shipLabels2, 2));
         add(boardsContainer, BorderLayout.CENTER);
 
-        JPanel bottomPanel = new JPanel();
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        randomizeButton = new JButton("Randomize Fleet");
+        clearButton = new JButton("Clear Board");
+        confirmButton = new JButton("Start Battle");
         JButton resetButton = new JButton("New Game");
+
+        randomizeButton.addActionListener(e -> randomizeActiveFleet());
+        clearButton.addActionListener(e -> clearActiveFleet());
+        confirmButton.addActionListener(e -> handleConfirmPlacement());
         resetButton.addActionListener(e -> initGame());
+
+        bottomPanel.add(randomizeButton);
+        bottomPanel.add(clearButton);
+        bottomPanel.add(confirmButton);
         bottomPanel.add(resetButton);
         add(bottomPanel, BorderLayout.SOUTH);
 
@@ -67,7 +87,7 @@ public class BattleshipGUI extends JFrame {
                 if (isPlacementPhase && !gameOver) {
                     toggleDirection();
                     if (hoverX != -1 && hoverY != -1) {
-                        previewShipPlacement(hoverX, hoverY);
+                        previewShipPlacement(activePlayer, hoverX, hoverY);
                     }
                 }
             }
@@ -81,7 +101,7 @@ public class BattleshipGUI extends JFrame {
         setVisible(true);
     }
 
-    private JPanel createBoardPanel(String title, JButton[][] buttons, JLabel[] shipLabels, boolean isPlayerBoard) {
+    private JPanel createBoardPanel(String title, JButton[][] buttons, JLabel[] shipLabels, int boardOwner) {
         JPanel wrapper = new JPanel(new BorderLayout(5, 8));
         JLabel titleLabel = new JLabel(title, SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
@@ -114,26 +134,26 @@ public class BattleshipGUI extends JFrame {
                     btn.setFont(new Font("Arial", Font.BOLD, 14));
                     btn.setForeground(Color.WHITE);
 
-                    if (isPlayerBoard) {
-                        btn.addActionListener(e -> handlePlayerBoardClick(fx, fy));
-                        btn.addMouseListener(new MouseAdapter() {
-                            @Override
-                            public void mouseEntered(MouseEvent e) {
+                    btn.addActionListener(e -> handleBoardClick(boardOwner, fx, fy));
+                    btn.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseEntered(MouseEvent e) {
+                            if (isPlacementPhase && activePlayer == boardOwner) {
                                 hoverX = fx;
                                 hoverY = fy;
-                                previewShipPlacement(hoverX, hoverY);
+                                previewShipPlacement(boardOwner, hoverX, hoverY);
                             }
+                        }
 
-                            @Override
-                            public void mouseExited(MouseEvent e) {
+                        @Override
+                        public void mouseExited(MouseEvent e) {
+                            if (isPlacementPhase && activePlayer == boardOwner) {
                                 hoverX = -1;
                                 hoverY = -1;
                                 refreshBoards();
                             }
-                        });
-                    } else {
-                        btn.addActionListener(e -> handleEnemyBoardClick(fx, fy));
-                    }
+                        }
+                    });
 
                     buttons[fy][fx] = btn;
                     gridPanel.add(btn);
@@ -160,26 +180,98 @@ public class BattleshipGUI extends JFrame {
     }
 
     private void initGame() {
-        playerBoard.resetBoard();
-        aiBoard.resetBoard();
+        board1.resetBoard();
+        board2.resetBoard();
         aiPlayer.reset();
         gameOver = false;
-        currentShipIndex = 0;
+        isPlacementPhase = true;
+        hideAllShipsDuringHandoff = false;
+        activePlayer = 1;
         currentDirection = Ship.Direction.HORIZONTAL;
         rotateButton.setText("Direction: HORIZONTAL (Press R)");
 
-        autoPlaceShips(aiBoard);
+        boolean isPvP = settings.getGameMode() == GameSettings.GameMode.PLAYER_VS_PLAYER;
+        confirmButton.setText(isPvP ? "Confirm Player 1 Fleet" : "Start Battle");
+
+        if (!isPvP) {
+            autoPlaceShips(board2);
+        }
 
         if (settings.getPlacementMode() == GameSettings.PlacementMode.AUTO) {
-            autoPlaceShips(playerBoard);
-            isPlacementPhase = false;
-            rotateButton.setEnabled(false);
-            statusLabel.setText("Battle Started! Click on ENEMY WATERS to fire.");
+            randomizeActiveFleet();
         } else {
-            isPlacementPhase = true;
-            rotateButton.setEnabled(true);
-            updatePlacementPrompt();
+            clearActiveFleet();
         }
+    }
+
+    private Board getActiveBoard() {
+        return activePlayer == 1 ? board1 : board2;
+    }
+
+    private JButton[][] getActiveButtons() {
+        return activePlayer == 1 ? buttons1 : buttons2;
+    }
+
+    private void randomizeActiveFleet() {
+        if (!isPlacementPhase || gameOver) return;
+        Board target = getActiveBoard();
+        target.resetBoard();
+        autoPlaceShips(target);
+        currentShipIndex = GameSettings.DEFAULT_SHIP_TYPES.length;
+        rotateButton.setEnabled(false);
+        confirmButton.setEnabled(true);
+        randomizeButton.setEnabled(true);
+        clearButton.setEnabled(true);
+        statusLabel.setText("Player " + activePlayer + " fleet randomized! Confirm or customize again.");
+        refreshBoards();
+    }
+
+    private void clearActiveFleet() {
+        if (!isPlacementPhase || gameOver) return;
+        getActiveBoard().resetBoard();
+        currentShipIndex = 0;
+        rotateButton.setEnabled(true);
+        confirmButton.setEnabled(false);
+        randomizeButton.setEnabled(true);
+        clearButton.setEnabled(true);
+        updatePlacementPrompt();
+        refreshBoards();
+    }
+
+    private void handleConfirmPlacement() {
+        if (!isPlacementPhase || currentShipIndex < GameSettings.DEFAULT_SHIP_TYPES.length) return;
+
+        boolean isPvP = settings.getGameMode() == GameSettings.GameMode.PLAYER_VS_PLAYER;
+        if (isPvP && activePlayer == 1) {
+            hideAllShipsDuringHandoff = true;
+            refreshBoards();
+            JOptionPane.showMessageDialog(this, "Player 1 fleet confirmed! Pass the device to Player 2.");
+            hideAllShipsDuringHandoff = false;
+
+            activePlayer = 2;
+            confirmButton.setText("Start Battle");
+            if (settings.getPlacementMode() == GameSettings.PlacementMode.AUTO) {
+                randomizeActiveFleet();
+            } else {
+                clearActiveFleet();
+            }
+            return;
+        }
+
+        if (isPvP) {
+            hideAllShipsDuringHandoff = true;
+            refreshBoards();
+            JOptionPane.showMessageDialog(this, "Player 2 fleet confirmed! Pass back to Player 1 to start.");
+            hideAllShipsDuringHandoff = false;
+        }
+
+        isPlacementPhase = false;
+        activePlayer = 1;
+        rotateButton.setEnabled(false);
+        randomizeButton.setEnabled(false);
+        clearButton.setEnabled(false);
+        confirmButton.setEnabled(false);
+        statusLabel.setText(isPvP ? "Player 1's Turn! Attack Player 2's board." : "Battle Started! Click on ENEMY WATERS to attack.");
         refreshBoards();
     }
 
@@ -193,75 +285,132 @@ public class BattleshipGUI extends JFrame {
     private void updatePlacementPrompt() {
         char type = GameSettings.DEFAULT_SHIP_TYPES[currentShipIndex];
         int size = GameSettings.DEFAULT_SHIP_SIZES[currentShipIndex];
-        statusLabel.setText("Place " + getShipName(type) + " (Size: " + size + ") on YOUR FLEET");
+        statusLabel.setText("Player " + activePlayer + ": Place " + getShipName(type) + " (Size: " + size + ")");
     }
 
-    private void previewShipPlacement(int x, int y) {
-        if (!isPlacementPhase || gameOver) return;
+    private void previewShipPlacement(int boardOwner, int x, int y) {
+        if (!isPlacementPhase || gameOver || boardOwner != activePlayer) return;
+        if (currentShipIndex >= GameSettings.DEFAULT_SHIP_TYPES.length) return;
         refreshBoards();
 
+        Board target = getActiveBoard();
+        JButton[][] targetButtons = getActiveButtons();
         char type = GameSettings.DEFAULT_SHIP_TYPES[currentShipIndex];
         int size = GameSettings.DEFAULT_SHIP_SIZES[currentShipIndex];
         Ship tempShip = new Ship(type, size, x, y, currentDirection);
-        boolean valid = playerBoard.canPlaceShip(tempShip);
+        boolean valid = target.canPlaceShip(tempShip);
         Color previewColor = valid ? new Color(144, 238, 144) : new Color(255, 160, 160);
 
         for (int i = 0; i < size; i++) {
             int tx = (currentDirection == Ship.Direction.HORIZONTAL) ? x + i : x;
             int ty = (currentDirection == Ship.Direction.VERTICAL) ? y + i : y;
             if (tx >= 0 && tx < Board.SIZE && ty >= 0 && ty < Board.SIZE) {
-                playerButtons[ty][tx].setBackground(previewColor);
+                targetButtons[ty][tx].setBackground(previewColor);
             }
         }
     }
 
-    private void handlePlayerBoardClick(int x, int y) {
-        if (!isPlacementPhase || gameOver) return;
+    private void handleBoardClick(int boardOwner, int x, int y) {
+        if (gameOver || hideAllShipsDuringHandoff) return;
+
+        if (isPlacementPhase) {
+            if (boardOwner == activePlayer) {
+                placeShipOnActiveBoard(x, y);
+            }
+            return;
+        }
+
+        if (settings.getGameMode() == GameSettings.GameMode.PLAYER_VS_AI) {
+            if (boardOwner == 2) {
+                handlePvEAttack(x, y);
+            }
+        } else {
+            int enemyBoardOwner = (activePlayer == 1) ? 2 : 1;
+            if (boardOwner == enemyBoardOwner) {
+                handlePvPAttack(x, y);
+            }
+        }
+    }
+
+    private void placeShipOnActiveBoard(int x, int y) {
+        if (currentShipIndex >= GameSettings.DEFAULT_SHIP_TYPES.length) return;
 
         char type = GameSettings.DEFAULT_SHIP_TYPES[currentShipIndex];
         int size = GameSettings.DEFAULT_SHIP_SIZES[currentShipIndex];
         Ship ship = new Ship(type, size, x, y, currentDirection);
 
-        if (playerBoard.placeShip(ship)) {
+        if (getActiveBoard().placeShip(ship)) {
             currentShipIndex++;
             refreshBoards();
             if (currentShipIndex >= GameSettings.DEFAULT_SHIP_TYPES.length) {
-                isPlacementPhase = false;
                 rotateButton.setEnabled(false);
-                statusLabel.setText("All ships placed! Click on ENEMY WATERS to attack.");
+                confirmButton.setEnabled(true);
+                statusLabel.setText("All ships placed! Click '" + confirmButton.getText() + "' or 'Clear Board'.");
             } else {
                 updatePlacementPrompt();
             }
         }
     }
 
-    private void handleEnemyBoardClick(int x, int y) {
-        if (isPlacementPhase || gameOver) return;
-
-        Board.AttackResult result = aiBoard.attack(x, y);
+    private void handlePvEAttack(int x, int y) {
+        Board.AttackResult result = board2.attack(x, y);
         if (result == Board.AttackResult.ALREADY_ATTACKED) {
             statusLabel.setText("Already attacked " + formatCoord(x, y) + "! Pick another cell.");
             return;
         }
 
         refreshBoards();
-        if (aiBoard.allShipsSunk()) {
+        if (board2.allShipsSunk()) {
             gameOver = true;
+            refreshBoards();
             statusLabel.setText("VICTORY! You sank all enemy ships!");
             JOptionPane.showMessageDialog(this, "Congratulations! You won!");
             return;
         }
 
-        aiPlayer.takeTurn(playerBoard);
+        aiPlayer.takeTurn(board1);
         refreshBoards();
 
-        if (playerBoard.allShipsSunk()) {
+        if (board1.allShipsSunk()) {
             gameOver = true;
+            refreshBoards();
             statusLabel.setText("DEFEAT! Enemy sank all your ships!");
             JOptionPane.showMessageDialog(this, "Game Over! The AI sank your fleet.");
         } else {
             statusLabel.setText("Shot at " + formatCoord(x, y) + ": " + result + " | Your turn!");
         }
+    }
+
+    private void handlePvPAttack(int x, int y) {
+        Board targetBoard = (activePlayer == 1) ? board2 : board1;
+        Board.AttackResult result = targetBoard.attack(x, y);
+
+        if (result == Board.AttackResult.ALREADY_ATTACKED) {
+            statusLabel.setText("Already attacked " + formatCoord(x, y) + "! Pick another cell.");
+            return;
+        }
+
+        if (targetBoard.allShipsSunk()) {
+            gameOver = true;
+            refreshBoards();
+            statusLabel.setText("PLAYER " + activePlayer + " WINS!");
+            JOptionPane.showMessageDialog(this, "Player " + activePlayer + " sank all enemy ships and wins!");
+            return;
+        }
+
+        int nextPlayer = (activePlayer == 1) ? 2 : 1;
+        hideAllShipsDuringHandoff = true;
+        refreshBoards();
+        JOptionPane.showMessageDialog(
+                this,
+                "Player " + activePlayer + " shot at " + formatCoord(x, y) + ": " + result +
+                "\nPass the device to Player " + nextPlayer + "."
+        );
+
+        activePlayer = nextPlayer;
+        hideAllShipsDuringHandoff = false;
+        statusLabel.setText("Player " + activePlayer + "'s Turn! Attack Player " + (activePlayer == 1 ? 2 : 1) + "'s board.");
+        refreshBoards();
     }
 
     private void autoPlaceShips(Board board) {
@@ -281,14 +430,26 @@ public class BattleshipGUI extends JFrame {
     }
 
     private void refreshBoards() {
+        boolean showBoard1Ships = shouldShowShips(1);
+        boolean showBoard2Ships = shouldShowShips(2);
+
         for (int y = 0; y < Board.SIZE; y++) {
             for (int x = 0; x < Board.SIZE; x++) {
-                updateButtonAppearance(playerButtons[y][x], playerBoard, x, y, true);
-                updateButtonAppearance(aiButtons[y][x], aiBoard, x, y, false);
+                updateButtonAppearance(buttons1[y][x], board1, x, y, showBoard1Ships);
+                updateButtonAppearance(buttons2[y][x], board2, x, y, showBoard2Ships);
             }
         }
-        updateFleetLabels(playerShipLabels, playerBoard);
-        updateFleetLabels(aiShipLabels, aiBoard);
+        updateFleetLabels(shipLabels1, board1);
+        updateFleetLabels(shipLabels2, board2);
+    }
+
+    private boolean shouldShowShips(int boardOwner) {
+        if (gameOver) return true;
+        if (hideAllShipsDuringHandoff) return false;
+        if (settings.getGameMode() == GameSettings.GameMode.PLAYER_VS_AI) {
+            return boardOwner == 1;
+        }
+        return activePlayer == boardOwner;
     }
 
     private void updateButtonAppearance(JButton btn, Board board, int x, int y, boolean showShips) {

@@ -15,9 +15,7 @@ public class Main {
                 uiOptions[0]
         );
 
-        if (uiChoice == JOptionPane.CLOSED_OPTION) {
-            return;
-        }
+        if (uiChoice == JOptionPane.CLOSED_OPTION) return;
 
         if (uiChoice == 0) {
             SwingUtilities.invokeLater(Main::launchSwingMode);
@@ -27,23 +25,23 @@ public class Main {
     }
 
     private static void launchSwingMode() {
-        String[] diffOptions = {"Easy AI", "Hard AI (Hunt & Target)"};
-        int diffChoice = JOptionPane.showOptionDialog(
+        String[] modeOptions = {"Player vs AI (Easy)", "Player vs AI (Hard)", "Player vs Player"};
+        int modeChoice = JOptionPane.showOptionDialog(
                 null,
-                "Select AI Difficulty:",
+                "Select game mode:",
                 "Battleship Setup",
                 JOptionPane.DEFAULT_OPTION,
                 JOptionPane.QUESTION_MESSAGE,
                 null,
-                diffOptions,
-                diffOptions[1]
+                modeOptions,
+                modeOptions[1]
         );
-        if (diffChoice == JOptionPane.CLOSED_OPTION) return;
+        if (modeChoice == JOptionPane.CLOSED_OPTION) return;
 
         String[] placeOptions = {"Manual Placement", "Auto Placement"};
         int placeChoice = JOptionPane.showOptionDialog(
                 null,
-                "How do you want to place your ships?",
+                "How do you want to place ships?",
                 "Battleship Setup",
                 JOptionPane.DEFAULT_OPTION,
                 JOptionPane.QUESTION_MESSAGE,
@@ -53,19 +51,17 @@ public class Main {
         );
         if (placeChoice == JOptionPane.CLOSED_OPTION) return;
 
-        GameSettings.AIDifficulty difficulty = (diffChoice == 0)
+        GameSettings.GameMode mode = (modeChoice == 2)
+                ? GameSettings.GameMode.PLAYER_VS_PLAYER
+                : GameSettings.GameMode.PLAYER_VS_AI;
+        GameSettings.AIDifficulty difficulty = (modeChoice == 0)
                 ? GameSettings.AIDifficulty.EASY
                 : GameSettings.AIDifficulty.HARD;
         GameSettings.PlacementMode placement = (placeChoice == 1)
                 ? GameSettings.PlacementMode.AUTO
                 : GameSettings.PlacementMode.MANUAL;
 
-        GameSettings settings = new GameSettings(
-                GameSettings.GameMode.PLAYER_VS_AI,
-                difficulty,
-                placement
-        );
-
+        GameSettings settings = new GameSettings(mode, difficulty, placement);
         new BattleshipGUI(settings);
     }
 
