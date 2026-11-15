@@ -15,6 +15,8 @@ A Java-based implementation of the classic **Battleship** board game.
 
 ## How to run
 - Make sure Java JDK is installed on your computer.
+- Download or clone the "Game" file
+- Open it with cmd and run with ' java Main.java ' to play the game
 
 ## Disclaimer
 - **Educational Purpose:** This is a personal project created for learning and gaining further programming experience.
