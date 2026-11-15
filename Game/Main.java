@@ -1,7 +1,75 @@
 import java.util.Scanner;
+import javax.swing.*;
 
 public class Main {
     public static void main(String[] args) {
+        String[] uiOptions = {"Swing GUI", "Console"};
+        int uiChoice = JOptionPane.showOptionDialog(
+                null,
+                "Select interface mode:",
+                "Battleship Launcher",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                uiOptions,
+                uiOptions[0]
+        );
+
+        if (uiChoice == JOptionPane.CLOSED_OPTION) {
+            return;
+        }
+
+        if (uiChoice == 0) {
+            SwingUtilities.invokeLater(Main::launchSwingMode);
+        } else {
+            launchConsoleMode();
+        }
+    }
+
+    private static void launchSwingMode() {
+        String[] diffOptions = {"Easy AI", "Hard AI (Hunt & Target)"};
+        int diffChoice = JOptionPane.showOptionDialog(
+                null,
+                "Select AI Difficulty:",
+                "Battleship Setup",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                diffOptions,
+                diffOptions[1]
+        );
+        if (diffChoice == JOptionPane.CLOSED_OPTION) return;
+
+        String[] placeOptions = {"Manual Placement", "Auto Placement"};
+        int placeChoice = JOptionPane.showOptionDialog(
+                null,
+                "How do you want to place your ships?",
+                "Battleship Setup",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                placeOptions,
+                placeOptions[0]
+        );
+        if (placeChoice == JOptionPane.CLOSED_OPTION) return;
+
+        GameSettings.AIDifficulty difficulty = (diffChoice == 0)
+                ? GameSettings.AIDifficulty.EASY
+                : GameSettings.AIDifficulty.HARD;
+        GameSettings.PlacementMode placement = (placeChoice == 1)
+                ? GameSettings.PlacementMode.AUTO
+                : GameSettings.PlacementMode.MANUAL;
+
+        GameSettings settings = new GameSettings(
+                GameSettings.GameMode.PLAYER_VS_AI,
+                difficulty,
+                placement
+        );
+
+        new BattleshipGUI(settings);
+    }
+
+    private static void launchConsoleMode() {
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("=== BATTLESHIP CONFIGURATION ===");
@@ -10,7 +78,7 @@ public class Main {
         System.out.println("3. Player vs Player");
         System.out.print("Select game mode (1-3): ");
 
-        int modeChoice = scanner.nextInt();
+        int modeChoice = readInt(scanner);
         GameSettings.GameMode mode = (modeChoice == 3)
                 ? GameSettings.GameMode.PLAYER_VS_PLAYER
                 : GameSettings.GameMode.PLAYER_VS_AI;
@@ -22,16 +90,23 @@ public class Main {
         System.out.println("2. Manual ship placement");
         System.out.print("Select placement mode (1-2): ");
 
-        int placeChoice = scanner.nextInt();
+        int placeChoice = readInt(scanner);
         GameSettings.PlacementMode placement = (placeChoice == 2)
                 ? GameSettings.PlacementMode.MANUAL
                 : GameSettings.PlacementMode.AUTO;
 
         GameSettings settings = new GameSettings(mode, difficulty, placement);
-
         GameManager game = new GameManager(settings, scanner);
         game.start();
 
         scanner.close();
+    }
+
+    private static int readInt(Scanner scanner) {
+        while (!scanner.hasNextInt()) {
+            scanner.next();
+            System.out.print("Invalid number, please re-enter: ");
+        }
+        return scanner.nextInt();
     }
 }
